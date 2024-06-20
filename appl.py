@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "local2035",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -61,7 +61,7 @@ args = {
                 "market_zones": "status_quo", # only used if type='market_grid'
                 "rolling_horizon": {# Define parameter of market optimization
                     "planning_horizon": 168, # number of snapshots in each optimization
-                    "overlap": 48, # number of overlapping hours
+                    "overlap": 120, # number of overlapping hours
                  },
                 "redispatch": True,
              }
@@ -72,7 +72,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 168,
+    "end_snapshot": 500,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -89,7 +89,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results168",  # save results as csv: False or /path/tofolder
+    "csv_export": "Result",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
