@@ -47,22 +47,24 @@ if "READTHEDOCS" not in os.environ:
 
     from etrago import Etrago
 
-
-
 args = {
     # Setup and Configuration:
-    "db": "etrago-data",  # database session
+    "db": "local2035",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
-        "type": "lopf",  # type of optimization, 'lopf', 'sclopf' or 'market_grid'
+        "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "pyomo": True,  # set if pyomo is used for model building
-        "formulation": "pyomo",
-        "market_zones": "status_quo", # only used if type='market_grid'
-        "rolling_horizon": { # Define parameter of market optimization
-            "planning_horizon": 168, # number of snapshots in each optimization
-            "overlap": 48, # number of overlapping hours
-            },
+        "formulation": "linopy",
+        "market_optimization":
+            {
+                "active": True,
+                "market_zones": "status_quo", # only used if type='market_grid'
+                "rolling_horizon": {# Define parameter of market optimization
+                    "planning_horizon": 168, # number of snapshots in each optimization
+                    "overlap": 120, # number of overlapping hours
+                 },
+                "redispatch": True,
+             }
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -70,7 +72,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 100,
+    "end_snapshot": 500,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -87,7 +89,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results50new",  # save results as csv: False or /path/tofolder
+    "csv_export": "Result",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -114,21 +116,12 @@ args = {
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
-        "interest_area": False, #False, #path to shapefile or list of nuts names of not cluster area
-        #"secondary_interest_area": False, #["Bremerhaven"], #False, #path to shapefile or list of nuts names of not cluster area
     },
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 50,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        #"interest_area": ["Nordfriesland","Flensburg","Kiel","Lübeck","Neumünster","Dithmarschen","Herzogtum Lauenburg", "Ostholstein","Pinneberg","Plön","Rendsburg-Eckernförde","Schleswig-Flensburg",  "Segeberg","Steinburg","Stormarn"],  # List Nordfriesland of NUTS names or path to a shapefile for primary interest area
-        "primary_interest_area": ["Nordfriesland"],  # List of NUTS names or path to a shapefile for primary interest area
-        "secondary_interest_area": ["Flensburg","Kiel","Lübeck","Neumünster", "Dithmarschen","Herzogtum Lauenburg", "Ostholstein","Pinneberg","Plön","Rendsburg-Eckernförde", "Schleswig-Flensburg",  "Segeberg","Steinburg","Stormarn"],  # List for secondary interest area minus "Dithmarschen","Herzogtum Lauenburg", "Ostholstein","Pinneberg","Plön","Rendsburg-Eckernförde",
-        "cluster_primary_area": False, # No clustering for primary area or specify number of clusters if needed
-        "cluster_secondary_area": 7,  # Specific number of clusters for secondary area
-        "method_gas": "kmedoids-dijkstra",  # choose clustering method for gas: kmeans or kmedoids-dijkstra
-        #"cluster_interest_area": False,  # No clustering for primary area or specify number of clusters if needed
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 50,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
@@ -182,7 +175,6 @@ args = {
     "comments": None,
 }
 
-    
 
 def run_etrago(args, json_path):
     """Function to conduct optimization considering the following arguments.
@@ -271,17 +263,22 @@ def run_etrago(args, json_path):
     scn_name : str
          Choose your scenario. Currently, there are two different
          scenarios: "eGon2035", "eGon100RE". Default: "eGon2035".
-    scn_extension : None or list of str
+    scn_extension : None or str
+        This option does currently not work!
 
         Choose extension-scenarios which will be added to the existing
         network container. Data of the extension scenarios are located in
-        extension-tables (e.g. grid.egon_etrago_extension_line)
-        There are two overlay networks:
+        extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
+        with the prefix 'extension\_'.
+        There are three overlay networks:
 
-        * 'nep2021_confirmed' includes all planed new lines confirmed by the
-          Bundesnetzagentur included in the NEP version 2021
-        * 'nep2021_c2035' includes all new lines planned by the
-          Netzentwicklungsplan 2021 in scenario 2035 C
+        * 'nep2035_confirmed' includes all planed new lines confirmed by the
+          Bundesnetzagentur
+        * 'nep2035_b2' includes all new lines planned by the
+          Netzentwicklungsplan 2025 in scenario 2035 B2
+        * 'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
+          adds BE and NO as electrical neighbours
+
         Default: None.
     scn_decommissioning : NoneType or str
         This option does currently not work!
@@ -407,7 +404,6 @@ def run_etrago(args, json_path):
         connected lines are merged. This reduces the spatial complexity without
         losing any accuracy.
         Default: True.
-        
     network_clustering_ehv : dict
         Choose if you want to apply an extra high voltage clustering to the
         electrical network.
@@ -423,13 +419,6 @@ def run_etrago(args, json_path):
         a new busmap must be calculated. False or path to the busmap in csv
         format should be given.
         Default: False
-        * "interest_area": False, list, string
-        Area of especial interest that will be not clustered. It is by
-        default set to false. When an interest_area is provided, the given
-        value for n_clusters_AC will mean the total of AC buses outside the
-        area.The area can be provided in two ways: list of
-        nuts names e.G. ["Cuxhaven", "Bremerhaven", "Bremen"] or a string
-        with a path to a shape file (.shp).
 
     network_clustering : dict
         Choose if you want to apply a clustering of all network buses and
@@ -446,14 +435,12 @@ def run_etrago(args, json_path):
             * "kmeans": considers geographical locations of buses
             * "kmedoids-dijkstra":  considers electrical distances between
             buses
+
             Default: "kmedoids-dijkstra".
-        * "n_clusters_AC" : int, False
+        * "n_clusters_AC" : int
             Defines total number of resulting AC nodes including DE and foreign
             nodes if `cluster_foreign_AC` is set to True, otherwise only DE
-            nodes. When using the interest_area parameter, n_clusters_AC could
-            be set to False, which means that only the buses inside the 
-            provided area are clustered.
-
+            nodes.
             Default: 30.
         * "cluster_foreign_AC" : bool
             If set to False, the AC buses outside Germany are not clustered
@@ -462,24 +449,13 @@ def run_etrago(args, json_path):
             as well and included in number of clusters specified through
             ``'n_clusters_AC'``.
             Default: False.
-        * "interest_area": False, list, string
-            Area of especial interest that will be not clustered. It is by
-            default set to false. When an interest_area is provided, the given
-            value for n_clusters_AC will mean the total of AC buses outside the
-            area.The area can be provided in two ways: list of
-            nuts names e.G. ["Cuxhaven", "Bremerhaven", "Bremen"] or a string
-            with a path to a shape file (.shp).
-            Default: False.
-        * "cluster_interest_area": False, int
-            Number of buses to cluster all the electrical buses in the
-            exclusion area. Method provided in the arg "method" is used.
-            Default: False.
         * "method_gas" : str
             Method used for gas clustering. You can choose between two
             clustering methods:
             * "kmeans": considers geographical locations of buses
             * "kmedoids-dijkstra":  considers 'electrical' distances between
             buses
+
             Default: "kmedoids-dijkstra".
         * "n_clusters_gas" : int
             Defines total number of resulting CH4 nodes including DE and
@@ -706,8 +682,22 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
-   
-# adjust network regarding eTraGo setting
+    # drop generators without p_nom
+    etrago.network.mremove(
+        "Generator",
+        etrago.network.generators[
+            etrago.network.generators.p_nom==0].index
+        )
+
+    # Temporary drop DLR as it is currently not working with sclopf
+    if (etrago.args["method"]["type"] == "sclopf") & (
+            not etrago.network.lines_t.s_max_pu.empty):
+        print("Setting s_max_pu timeseries to 1")
+        etrago.network.lines_t.s_max_pu = pd.DataFrame(
+            index=etrago.network.snapshots,
+        )
+
+    # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
     # ehv network clustering
@@ -717,10 +707,11 @@ def run_etrago(args, json_path):
     etrago.spatial_clustering()
 
     etrago.spatial_clustering_gas()
-
+    etrago.network.links.loc[etrago.network.links.carrier=="CH4", "p_nom"] *= 100
+    etrago.network.generators_t.p_max_pu.where(etrago.network.generators_t.p_max_pu>1e-5, other=0., inplace=True)
     # snapshot clustering
     etrago.snapshot_clustering()
-    #breakpoint()
+
     # skip snapshots
     etrago.skip_snapshots()
 
@@ -735,11 +726,6 @@ def run_etrago(args, json_path):
     etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
 
     # start linear optimal powerflow calculations
-
-    etrago.network.storage_units.cyclic_state_of_charge = True
-
-    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
-
     etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
@@ -754,10 +740,9 @@ def run_etrago(args, json_path):
 
     # calculate central etrago results
     etrago.calc_results()
-    
-    etrago.calc_etrago_results_areas()
-   
+
     return etrago
+
 
 if __name__ == "__main__":
     # execute etrago function
